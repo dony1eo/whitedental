@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("doctor")
+  specialty String?
+  phone     String?
+  color     String   @default("#0787c9")
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments  Appointment[]
+  treatmentLines TreatmentLine[]
+  leads         Lead[]
+  tasks         Task[] @relation("TaskAssignee")
+}
+
+model Patient {
+  id        Int      @id @default(autoincrement())
+  cardNo    String   @unique
+  firstName String
+  lastName  String
+  middleName String?
+  gender    String   @default("female")
+  dateOfBirth DateTime?
+  phone     String?
+  email     String?
+  source    String?
+  status    String   @default("active")
+  curatorId Int?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+  dentalChart  DentalTooth[]
+  treatmentPlans TreatmentPlan[]
+  payments     Payment[]
+  documents    PatientDocument[]
+  leads        Lead[]
+}
+
+model DentalTooth {
+  id        Int     @id @default(autoincrement())
+  patientId Int
+  toothNo   Int
+  status    String  @default("healthy")
+  notes     String?
+  updatedAt DateTime @updatedAt
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, toothNo])
+}
+
+model Service {
+  id         Int    @id @default(autoincrement())
+  name       String
+  category   String
+  price      Float
+  doctorPct  Int    @default(30)
+  duration   Int    @default(45)
+  isActive   Boolean @default(true)
+  createdAt  DateTime @default(now())
+
+  treatmentLines TreatmentLine[]
+  planItems      TreatmentPlanItem[]
+}
+
+model Appointment {
+  id          Int      @id @default(autoincrement())
+  patientId   Int
+  doctorId    Int
+  chair       String
+  visitType   String   @default("treatment")
+  visitKind   String   @default("paid")
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("not_confirmed")
+  direction   String?
+  source      String?
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient       Patient @relation(fields: [patientId], references: [id])
+  doctor        User    @relation(fields: [doctorId], references: [id])
+  treatmentLines TreatmentLine[]
+}
+
+model TreatmentLine {
+  id            Int    @id @default(autoincrement())
+  appointmentId Int
+  serviceId     Int
+  doctorId      Int
+  toothNo       Int?
+  qty           Int    @default(1)
+  price         Float
+  doctorPct     Int    @default(30)
+  createdAt     DateTime @default(now())
+
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service       Service     @relation(fields: [serviceId], references: [id])
+  doctor        User        @relation(fields: [doctorId], references: [id])
+}
+
+model TreatmentPlan {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient   Patient             @relation(fields: [patientId], references: [id])
+  items     TreatmentPlanItem[]
+}
+
+model TreatmentPlanItem {
+  id         Int    @id @default(autoincrement())
+  planId     Int
+  serviceId  Int
+  toothNo    Int?
+  status     String @default("planned")
+  price      Float
+
+  plan    TreatmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  service Service       @relation(fields: [serviceId], references: [id])
+}
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  patientId   Int
+  amount      Float
+  method      String   @default("cash")
+  type        String   @default("payment")
+  description String?
+  createdAt   DateTime @default(now())
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+}
+
+model PatientDocument {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  name      String
+  type      String
+  url       String?
+  createdAt DateTime @default(now())
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+}
+
+model Material {
+  id         Int    @id @default(autoincrement())
+  name       String
+  category   String
+  stock      Float
+  minStock   Float
+  unit       String
+  price      Float
+  supplierId Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+  docLines   WarehouseDocLine[]
+}
+
+model Supplier {
+  id        Int    @id @default(autoincrement())
+  name      String
+  contact   String?
+  phone     String?
+  category  String?
+  balance   Float  @default(0)
+  createdAt DateTime @default(now())
+
+  materials  Material[]
+  warehouseDocs WarehouseDoc[]
+}
+
+model WarehouseDoc {
+  id         Int      @id @default(autoincrement())
+  docNo      String   @unique
+  type       String
+  supplierId Int?
+  party      String?
+  status     String   @default("posted")
+  totalSum   Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  supplier   Supplier?        @relation(fields: [supplierId], references: [id])
+  lines      WarehouseDocLine[]
+}
+
+model WarehouseDocLine {
+  id         Int   @id @default(autoincrement())
+  docId      Int
+  materialId Int
+  qty        Float
+  price      Float @default(0)
+
+  doc        WarehouseDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  material   Material     @relation(fields: [materialId], references: [id])
+}
+
+model CashboxEntry {
+  id          Int      @id @default(autoincrement())
+  operation   String
+  method      String
+  amount      Float
+  isIncome    Boolean
+  patientId   Int?
+  createdAt   DateTime @default(now())
+}
+
+model Lead {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  source    String   @default("online")
+  stage     Int      @default(0)
+  potential Float    @default(0)
+  curatorId Int?
+  patientId Int?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  curator   User?    @relation(fields: [curatorId], references: [id])
+  patient   Patient? @relation(fields: [patientId], references: [id])
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  name      String
+  channel   String
+  groupName String?
+  reach     Int      @default(0)
+  status    String   @default("draft")
+  sentAt    DateTime?
+  scheduledAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model PatientGroup {
+  id        Int    @id @default(autoincrement())
+  name      String
+  condition String
+  color     String @default("#0787c9")
+  count     Int    @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id         Int      @id @default(autoincrement())
+  title      String
+  assigneeId Int
+  priority   String   @default("normal")
+  due        String   @default("today")
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  assignee   User @relation("TaskAssignee", fields: [assigneeId], references: [id])
+}
+
+model Waitlist {
+  id          Int      @id @default(autoincrement())
+  patientName String
+  phone       String?
+  desiredDoctor String?
+  dateWindow  String?
+  priority    String   @default("normal")
+  createdAt   DateTime @default(now())
+}
+
+model Branch {
+  id        Int    @id @default(autoincrement())
+  name      String
+  address   String?
+  isMain    Boolean @default(false)
+  createdAt DateTime @default(now())
+}
