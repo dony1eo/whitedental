@@ -93,7 +93,7 @@ export default function SettingsPage() {
   const saveRbac = useSaveRbac();
 
   // Hydrate matrix from API once loaded
-  useEffect(() => { if (rbacData) setMatrix(rbacData as typeof DEFAULT_MATRIX); }, [rbacData]);
+  useEffect(() => { if (rbacData && Object.keys(rbacData as object).length > 0) setMatrix(rbacData as typeof DEFAULT_MATRIX); }, [rbacData]);
 
   function handleSaveRbac() {
     saveRbac.mutate(matrix, {
